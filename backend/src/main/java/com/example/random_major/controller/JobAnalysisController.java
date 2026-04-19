@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -18,7 +20,6 @@ import org.springframework.web.multipart.MultipartFile;
 import com.example.random_major.entity.ExtractedData;
 import com.example.random_major.entity.JobRecord;
 import com.example.random_major.model.EnhancedJobResult;
-import com.example.random_major.model.JobResult;
 import com.example.random_major.service.EntityExtractionService;
 import com.example.random_major.service.JobAnalysisService;
 import com.example.random_major.service.LimeService;
@@ -28,16 +29,38 @@ import com.example.random_major.service.LimeService;
 @RequestMapping("/api")
 public class JobAnalysisController {
 
+    private static final Logger log = LoggerFactory.getLogger(JobAnalysisController.class);
+
     @Autowired private JobAnalysisService jobService;
     @Autowired private LimeService limeService;
     @Autowired private EntityExtractionService entityExtractionService;
     @Autowired private com.example.random_major.service.JobResultService jobResultService;
 
     // ---------------------------------------------------------
-    // ✅ TEXT ANALYSIS — with optional LIME depth / format params
+    // ✅ TEXT ANALYSIS — unified pipeline for consistency
     // ---------------------------------------------------------
+    /**
+     * Analyze plain text job posting with UNIFIED PIPELINE.
+     * 
+     * This endpoint ensures CONSISTENT RESULTS with file uploads:
+     * - Extracts entities (company, URL, domain, email)
+     * - Verifies company name
+     * - Validates domain against company website
+     * - Detects red flags
+     * - Runs ML prediction
+     * - Generates LIME explanations
+     * 
+     * IMPORTANT: This uses the SAME pipeline as /api/analyze-file and /api/analyze-enhanced.
+     * There is NO separate logic for TEXT vs FILE inputs - all use unified processing.
+     * 
+     * @param jobText The job posting text (required)
+     * @param numFeatures LIME feature depth (default 10)
+     * @param format LIME output format (default json)
+     * @param userId User ID for tracking (optional)
+     * @return EnhancedJobResult with full verification pipeline applied
+     */
     @PostMapping(value = "/analyze", consumes = "text/plain", produces = "application/json")
-    public ResponseEntity<JobResult> analyzeJob(
+    public ResponseEntity<?> analyzeJob(
             @RequestBody String jobText,
             @RequestParam(value = "numFeatures", defaultValue = "10") int numFeatures,
             @RequestParam(value = "format", defaultValue = "json") String format,
@@ -45,10 +68,45 @@ public class JobAnalysisController {
     ) {
         if (jobText == null || jobText.trim().isEmpty()) {
             return ResponseEntity.badRequest()
-                    .body(new JobResult("error", 0.0, "Job text cannot be empty"));
+                    .body(Map.of("error", "Job text cannot be empty"));
         }
-        JobResult result = jobService.analyzePlainText(jobText, numFeatures, format, userId);
-        return ResponseEntity.ok(result);
+
+        try {
+            log.info("📝 /api/analyze endpoint called - TEXT input");
+            log.info("   Text length: {} chars", jobText.length());
+            
+            // ✅ CRITICAL: Use UNIFIED PIPELINE for ALL text inputs
+            // This ensures IDENTICAL processing as file uploads
+            // Manual fields are NULL → will be auto-extracted from text
+            log.info("   Processing through UNIFIED PIPELINE (same as file uploads)");
+            
+            EnhancedJobResult result = jobService.analyzeWithUnifiedPipeline(
+                jobText,              // Normalized finalText
+                null,                 // No manual company → will be extracted
+                null,                 // No manual URL → will be extracted
+                null,                 // No manual email → will be extracted
+                userId,
+                "TEXT"                // Input type: plain text
+            );
+
+            // ✅ If user requested specific LIME settings, re-generate with custom parameters
+            if (numFeatures != 10 || !"json".equals(format)) {
+                log.info("   Re-generating LIME with custom settings: features={}, format={}", numFeatures, format);
+                LimeService.LimeResult customLime = limeService.explain(jobText, numFeatures, format, userId);
+                result.setLimeExplanations(customLime.explanations);
+                result.setCacheStatus(customLime.cacheStatus);
+                result.setExplanationLatencyMs(customLime.latencyMs);
+                result.setGcsUrl(customLime.gcsUrl);
+            }
+
+            log.info("✅ TEXT analysis completed - returning unified result");
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            log.error("❌ TEXT analysis failed: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Analysis failed: " + e.getMessage()));
+        }
     }
 
     // ---------------------------------------------------------
