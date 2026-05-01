@@ -14,6 +14,7 @@ import com.example.random_major.entity.JobRecord;
 import com.example.random_major.model.CompanyVerificationResponse;
 import com.example.random_major.model.DomainValidationResponse;
 import com.example.random_major.model.EnhancedJobResult;
+import com.example.random_major.model.HybridVerificationResponse;
 import com.example.random_major.model.JobResult;
 import com.example.random_major.repository.JobRecordRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -37,6 +38,7 @@ public class JobAnalysisService {
     @Autowired private PredictionService predictionService;
     @Autowired private RedFlagDetectionService redFlagDetectionService;
     @Autowired private EntityExtractionService entityExtractionService;
+    @Autowired private HybridJobVerificationService hybridJobVerificationService;
 
     @Value("${lime.num-features:10}")
     private int defaultNumFeatures;
@@ -353,6 +355,41 @@ public class JobAnalysisService {
             log.info("✅ Company verification COMPLETED - Status: {}", companyVerification.getStatus());
 
             // ═══════════════════════════════════════════════════════════
+            // STEP 5.5: HYBRID REAL-TIME VERIFICATION (website + search API)
+            // ═══════════════════════════════════════════════════════════
+            log.info("🔍 STEP 5.5: Running hybrid real-time verification...");
+            HybridVerificationResponse hybridVerification = null;
+            
+            if (companyNameForValidation != null && !companyNameForValidation.isEmpty()) {
+                log.info("   Starting hybrid verification for: '{}'", companyNameForValidation);
+                
+                // Extract job title from text (first line or job title pattern)
+                String jobTitleForVerification = extractJobTitle(jobText);
+                
+                hybridVerification = hybridJobVerificationService.verify(
+                    companyNameForValidation,
+                    jobTitleForVerification,
+                    null, // location (optional)
+                    jobText,
+                    extractedData.getDomain()
+                );
+                
+                log.info("✅ Hybrid verification COMPLETED");
+                log.info("   Website Score: {} (Domain exists: {}, Careers page: {})",
+                    hybridVerification.getWebsiteScore(),
+                    hybridVerification.isWebsiteExists(),
+                    hybridVerification.isCareersPageExists());
+                log.info("   Search Score: {} (Job matches: {})",
+                    hybridVerification.getSearchScore(),
+                    hybridVerification.isJobMatchSearch());
+                log.info("   Final Hybrid Score: {}", hybridVerification.getFinalScore());
+                log.info("   Status: {}", hybridVerification.getApiStatus());
+            } else {
+                log.warn("   ⚠️  No company name to verify via hybrid method");
+                hybridVerification = HybridVerificationResponse.neutral("No company name available");
+            }
+
+            // ═══════════════════════════════════════════════════════════
             // STEP 6: DOMAIN VALIDATION (using extracted URLs/emails and verified company)
             // ═══════════════════════════════════════════════════════════
             log.info("🔗 STEP 6: Validating domain (for {} input)...", normalizedInputType);
@@ -407,6 +444,29 @@ public class JobAnalysisService {
                 log.info("   Red flag scaling applied: {} → {} (severity: {})", 
                     postProcessing.getAdjustedScore(), postProcessedScore, redFlagScore);
             }
+            
+            // ─────────────────────────────────────────────────────────
+            // Apply hybrid verification score adjustment
+            // ─────────────────────────────────────────────────────────
+            if (hybridVerification != null && hybridVerification.getFinalScore() < 0.4) {
+                // Low hybrid score → strongly increase FAKE probability
+                double hybridAdjustment = 1.0 - (hybridVerification.getFinalScore() * 0.75);
+                postProcessedScore = Math.min(1.0, postProcessedScore * hybridAdjustment);
+                log.info("   Hybrid verification: LOW score ({}) → FAKE boost: {} → {}%",
+                    hybridVerification.getFinalScore(), (int)(postProcessing.getAdjustedScore() * 100),
+                    (int)(postProcessedScore * 100));
+            } else if (hybridVerification != null && hybridVerification.getFinalScore() > 0.7) {
+                // High hybrid score → increase REAL confidence
+                double hybridAdjustment = 0.5 + (hybridVerification.getFinalScore() * 0.25);
+                postProcessedScore = postProcessedScore * hybridAdjustment;
+                log.info("   Hybrid verification: HIGH score ({}) → REAL boost: {} → {}%",
+                    hybridVerification.getFinalScore(), (int)(postProcessing.getAdjustedScore() * 100),
+                    (int)(postProcessedScore * 100));
+            } else {
+                log.info("   Hybrid verification: NEUTRAL score ({}) → no additional adjustment",
+                    hybridVerification != null ? hybridVerification.getFinalScore() : 0.5);
+            }
+            
             log.info("✅ Post-processing COMPLETED");
             log.info("   Base → Adjusted: {}% → {}% (factor: {})", 
                 (int)(baseModelScore * 100), (int)(postProcessedScore * 100), adjustmentFactor);
@@ -443,6 +503,7 @@ public class JobAnalysisService {
             enhancedResult.setAdjustmentFactor(adjustmentFactor);
             enhancedResult.setCompanyVerification(companyVerification);
             enhancedResult.setDomainValidation(domainValidation);
+            enhancedResult.setHybridVerification(hybridVerification);
             enhancedResult.setLimeExplanations(limeResult.explanations);
             enhancedResult.setRedFlagScore(redFlagScore);
             enhancedResult.setRedFlagsDetected(redFlags);
@@ -616,5 +677,50 @@ public class JobAnalysisService {
             EnhancedJobResult errorResult = new EnhancedJobResult("error", 0.0, 0.0);
             return errorResult;
         }
+    }
+
+    // ---------------------------------------------------
+    // ✅ HELPER METHODS
+    // ---------------------------------------------------
+
+    /**
+     * Extracts job title keywords from text for hybrid verification
+     * 
+     * Looks for common job title patterns or uses first few words
+     * 
+     * @param jobText The job posting text
+     * @return Extracted job title or first line of text
+     */
+    private String extractJobTitle(String jobText) {
+        if (jobText == null || jobText.trim().isEmpty()) {
+            return null;
+        }
+
+        // Try to extract from "Position:" or "Job Title:" or similar
+        java.util.regex.Pattern titlePattern = java.util.regex.Pattern
+                .compile("(?i)(position|job title|role|opening)\\s*:?\\s*([^\\n]+)", java.util.regex.Pattern.CASE_INSENSITIVE);
+        java.util.regex.Matcher matcher = titlePattern.matcher(jobText);
+
+        if (matcher.find()) {
+            String title = matcher.group(2).trim();
+            if (title.length() > 200) {
+                title = title.substring(0, 200);
+            }
+            return title;
+        }
+
+        // Fallback: Use first line (up to first newline)
+        String[] lines = jobText.split("\\n");
+        if (lines.length > 0 && lines[0].length() > 3) {
+            String firstLine = lines[0].trim();
+            if (firstLine.length() > 200) {
+                firstLine = firstLine.substring(0, 200);
+            }
+            return firstLine;
+        }
+
+        // Last resort: use first 50 chars
+        String result = jobText.substring(0, Math.min(50, jobText.length()));
+        return result.replaceAll("\\n", " ").trim();
     }
 }

@@ -27,6 +27,9 @@ public class EnhancedJobResult {
     
     @JsonProperty("domainValidation")
     private DomainValidationResponse domainValidation;
+
+    @JsonProperty("hybridVerification")
+    private HybridVerificationResponse hybridVerification;
     
     @JsonProperty("lime_explanations")
     private List<LimeExplanation> limeExplanations;
@@ -116,6 +119,14 @@ public class EnhancedJobResult {
         this.domainValidation = domainValidation;
     }
 
+    public HybridVerificationResponse getHybridVerification() {
+        return hybridVerification;
+    }
+
+    public void setHybridVerification(HybridVerificationResponse hybridVerification) {
+        this.hybridVerification = hybridVerification;
+    }
+
     public List<LimeExplanation> getLimeExplanations() {
         return limeExplanations;
     }
@@ -196,3 +207,4 @@ public class EnhancedJobResult {
         this.extractedDomain = extractedDomain;
     }
 }
+
