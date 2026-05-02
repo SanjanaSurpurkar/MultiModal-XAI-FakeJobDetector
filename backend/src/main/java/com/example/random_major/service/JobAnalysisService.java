@@ -55,6 +55,12 @@ public class JobAnalysisService {
 
     public JobResult analyzePlainText(String jobText, int numFeatures, String outputFormat, String userId) {
         try {
+            // ── Step 0: VALIDATE JOB POST INPUT ───────────────────────
+            if (!JobPostValidator.isValidJobPost(jobText)) {
+                log.warn("❌ Invalid job post input detected - returning FAKE with 100% confidence");
+                return new JobResult("FAKE", 1.0, "Invalid job post input");
+            }
+
             // ── Step 1: PMML Prediction ──────────────────────────
             Map<String, Object> result = modelEvaluatorService.predict(jobText);
 
@@ -309,6 +315,18 @@ public class JobAnalysisService {
             log.info("   Company: {} [{}]", companyNameForValidation, companySource);
             log.info("   URL: {} [{}]", urlForValidation, urlSource);
             log.info("   Email/Domain: {} [{}]", emailForValidation, emailSource);
+
+            // ═══════════════════════════════════════════════════════════
+            // STEP 2.5: JOB POST VALIDATION (reject invalid inputs)
+            // ═══════════════════════════════════════════════════════════
+            log.info("🔍 STEP 2.5: Validating job post content...");
+            if (!JobPostValidator.isValidJobPost(jobText)) {
+                log.warn("❌ Invalid job post input detected - returning FAKE with 100% confidence");
+                EnhancedJobResult invalidResult = new EnhancedJobResult("FAKE", 1.0, 1.0);
+                invalidResult.setExternalValidationInfluence("Invalid job post input - does not meet validation criteria");
+                return invalidResult;
+            }
+            log.info("✅ Job post validation passed");
 
             // ═══════════════════════════════════════════════════════════
             // STEP 3: ML PREDICTION (base score from PMML model)

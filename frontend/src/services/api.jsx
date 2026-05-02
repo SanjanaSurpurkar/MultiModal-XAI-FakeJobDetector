@@ -42,13 +42,15 @@ export const extractEntities = async (jobText) => {
 /**
  * Uploads a file (PDF, image, audio) for job analysis.
  */
-export const analyzeJobFile = async (file, fileType, domain = '', userId = '') => {
+export const analyzeJobFile = async (file, fileType, domain = '', userId = '', companyName = '', contactEmail = '') => {
   try {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileType', fileType);
-    if (domain) formData.append('domain', domain);
+    if (domain) formData.append('jobPostingUrl', domain);
     if (userId) formData.append('userId', userId);
+    if (companyName) formData.append('companyName', companyName);
+    if (contactEmail) formData.append('contactEmail', contactEmail);
 
     const response = await axios.post(`${API_BASE}/analyze-file`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

@@ -99,6 +99,13 @@ const JobAnalysis = () => {
       addToast('Please enter a job description to analyze.', 'warning');
       return;
     }
+
+    // ✅ NEW: Validate minimum word count
+    const wordCount = jobText.trim().split(/\s+/).length;
+    if (wordCount < 30) {
+      addToast('Minimum 30 words required', 'warning');
+      return;
+    }
     
     setLoading(true);
     try {
@@ -149,7 +156,14 @@ const JobAnalysis = () => {
       console.log('Company Name:', companyName);
       console.log('User ID:', actualUserId);
       
-      const result = await analyzeJobFile(file, fileType, jobPostingUrl, actualUserId);
+      const result = await analyzeJobFile(file, fileType, jobPostingUrl, actualUserId, companyName, contactEmail);
+      
+      // ✅ NEW: Check if backend validation failed due to invalid input
+      if (result.externalValidationInfluence && 
+          result.externalValidationInfluence.includes('Invalid job post input')) {
+        addToast('Minimum 30 words required', 'warning');
+      }
+      
       navigate('/result', { state: { result } });
     } catch (err) {
       console.error(err);
