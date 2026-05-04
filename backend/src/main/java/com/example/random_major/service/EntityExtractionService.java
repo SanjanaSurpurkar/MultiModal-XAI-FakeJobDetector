@@ -60,6 +60,9 @@ public class EntityExtractionService {
     private static final Pattern COMPANY_PATTERN_4 = Pattern.compile("(?i)hiring\\s+at\\s+([A-Za-z0-9&.-]+(?:\\s+[A-Za-z0-9&.-]+)?)(?:\\s+(?:is|are|has|have|pvt|ltd|inc|corp|llc|limited|for)|[.,]|$)");
     private static final Pattern COMPANY_PATTERN_5 = Pattern.compile("(?i)hiring\\s+for\\s+([A-Za-z0-9&.-]+(?:\\s+[A-Za-z0-9&.-]+)?)");
     private static final Pattern COMPANY_PATTERN_6 = Pattern.compile("(?i)work\\s+at\\s+([A-Za-z0-9&.-]+(?:\\s+[A-Za-z0-9&.-]+)?)(?:\\s|[.,]|$)");
+    
+    // Email regex pattern - extracts email addresses
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}");
 
     // Known companies list - covers common IT and global companies
     // Supports both exact names and variations
@@ -97,6 +100,11 @@ public class EntityExtractionService {
         "demo", "beta", "alpha", "v1", "v2", "portal", "app"
     };
 
+    // Placeholder company names to reject (common test/example values)
+    private static final String[] PLACEHOLDER_COMPANIES = {
+        "example", "test", "sample", "demo", "placeholder", "fake", "temp"
+    };
+
     /**
      * Extracts structured information from job text
      * 
@@ -128,13 +136,30 @@ public class EntityExtractionService {
         log.debug("Extracted URL: {}", extractedUrl);
 
         // ┌─────────────────────────────────────────────────────────────────┐
-        // │ STEP 2: Domain Extraction from URL                             │
+        // │ STEP 2: Email & Domain Extraction                              │
         // └─────────────────────────────────────────────────────────────────┘
+        String email = extractEmail(text);
+        result.setEmail(email);
+        if (email != null) {
+            log.debug("📧 Extracted email: {}", email);
+        }
+
         String domain = null;
+        
+        // Try to extract domain from URL first
         if (extractedUrl != null) {
             domain = extractDomain(extractedUrl);
             result.setDomain(domain);
-            log.debug("Extracted domain from URL: {}", domain);
+            log.debug("📧 Extracted domain from URL: {}", domain);
+        }
+        
+        // If no domain from URL, try to extract from email
+        if (domain == null && email != null) {
+            domain = extractDomainFromEmail(email);
+            if (domain != null) {
+                result.setDomain(domain);
+                log.info("📧 Extracted email domain: {}", domain);
+            }
         }
 
         // ┌─────────────────────────────────────────────────────────────────┐
@@ -148,6 +173,15 @@ public class EntityExtractionService {
         }
 
         result.setCompanyName(companyName);
+        
+        // ┌─────────────────────────────────────────────────────────────────┐
+        // │ VALIDATION: Reject placeholder company names                   │
+        // └─────────────────────────────────────────────────────────────────┘
+        if (companyName != null && isPlaceholderCompany(companyName)) {
+            log.warn("⚠️  Company name is a placeholder: '{}' - rejecting", companyName);
+            result.setCompanyName(null);
+            companyName = null;
+        }
         
         // ┌─────────────────────────────────────────────────────────────────┐
         // │ LOGGING: Final extracted data with source                      │
@@ -521,5 +555,95 @@ public class EntityExtractionService {
         }
 
         return cleaned;
+    }
+
+    /**
+     * Extracts the first email address from text using regex
+     * 
+     * Pattern: [a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}
+     * 
+     * Examples:
+     * - hr@google.com
+     * - careers@infosys.com
+     * - support@example.co.uk
+     * 
+     * @param text The input text
+     * @return First valid email found, or null if no email found
+     */
+    private String extractEmail(String text) {
+        if (text == null || text.isEmpty()) {
+            return null;
+        }
+        
+        Matcher matcher = EMAIL_PATTERN.matcher(text);
+        if (matcher.find()) {
+            String email = matcher.group();
+            log.debug("Found email: {}", email);
+            return email;
+        }
+        
+        log.debug("❌ No email found in text");
+        return null;
+    }
+
+    /**
+     * Extracts domain from email address
+     * 
+     * Examples:
+     * - hr@google.com → google.com
+     * - careers@infosys.co.in → infosys.co.in
+     * - support@company.ac.uk → company.ac.uk
+     * 
+     * @param email The email address
+     * @return Domain part of the email, or null if extraction fails
+     */
+    private String extractDomainFromEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return null;
+        }
+        
+        try {
+            String domain = email.substring(email.indexOf("@") + 1);
+            if (!domain.isEmpty()) {
+                log.debug("Extracted domain from email '{}': {}", email, domain);
+                return domain;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to extract domain from email '{}': {}", email, e.getMessage());
+        }
+        
+        return null;
+    }
+
+    /**
+     * Checks if a company name is a placeholder (test/example company)
+     * 
+     * Placeholder companies to reject:
+     * - Example, example, EXAMPLE
+     * - Test, test, TEST
+     * - Sample, sample, SAMPLE
+     * - Demo, demo, DEMO
+     * - Placeholder, placeholder, PLACEHOLDER
+     * - Fake, fake, FAKE
+     * - Temp, temp, TEMP
+     * 
+     * @param companyName The company name to check
+     * @return true if the company is a placeholder, false otherwise
+     */
+    private boolean isPlaceholderCompany(String companyName) {
+        if (companyName == null || companyName.trim().isEmpty()) {
+            return false;
+        }
+        
+        String lowerName = companyName.toLowerCase().trim();
+        
+        for (String placeholder : PLACEHOLDER_COMPANIES) {
+            if (lowerName.equals(placeholder)) {
+                log.debug("Detected placeholder company: '{}'", companyName);
+                return true;
+            }
+        }
+        
+        return false;
     }
 }

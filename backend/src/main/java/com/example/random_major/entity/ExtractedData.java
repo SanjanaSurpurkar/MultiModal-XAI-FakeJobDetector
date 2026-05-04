@@ -21,6 +21,9 @@ public class ExtractedData {
     @JsonProperty("domain")
     private String domain;
 
+    @JsonProperty("email")
+    private String email;
+
     // ── Constructors ───────────────────────────────────────────
     public ExtractedData() {
     }
@@ -29,6 +32,13 @@ public class ExtractedData {
         this.companyName = companyName;
         this.url = url;
         this.domain = domain;
+    }
+
+    public ExtractedData(String companyName, String url, String domain, String email) {
+        this.companyName = companyName;
+        this.url = url;
+        this.domain = domain;
+        this.email = email;
     }
 
     // ── Getters ─────────────────────────────────────────────────
@@ -44,6 +54,10 @@ public class ExtractedData {
         return domain;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
     // ── Setters ─────────────────────────────────────────────────
     public void setCompanyName(String companyName) {
         this.companyName = companyName;
@@ -57,6 +71,10 @@ public class ExtractedData {
         this.domain = domain;
     }
 
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     // ── String Representation ───────────────────────────────────
     @Override
     public String toString() {
@@ -64,6 +82,7 @@ public class ExtractedData {
                 "companyName='" + companyName + '\'' +
                 ", url='" + url + '\'' +
                 ", domain='" + domain + '\'' +
+                ", email='" + email + '\'' +
                 '}';
     }
 }
