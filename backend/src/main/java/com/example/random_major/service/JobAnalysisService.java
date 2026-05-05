@@ -606,22 +606,22 @@ public class JobAnalysisService {
 
             if (hasDomainMismatchKnownCompany) {
                 strongSignalCount++;
-                overrideFloor = Math.max(overrideFloor, 0.90);
+                overrideFloor = Math.max(overrideFloor, 0.60);
                 overrideNotes.append("Domain mismatch for known company detected. ");
             }
             if (hasNonCorporateChannel) {
                 strongSignalCount++;
-                overrideFloor = Math.max(overrideFloor, 0.85);
+                overrideFloor = Math.max(overrideFloor, 0.80);
                 overrideNotes.append("Non-corporate channel mention detected (Telegram/WhatsApp). ");
             }
             if (hasEquipmentCheckScam) {
                 strongSignalCount++;
-                overrideFloor = Math.max(overrideFloor, 0.90);
+                overrideFloor = Math.max(overrideFloor, 0.85);
                 overrideNotes.append("Equipment check scam red flag detected. ");
             }
 
             if (strongSignalCount >= 2) {
-                overrideFloor = Math.max(overrideFloor, 0.95);
+                overrideFloor = Math.max(overrideFloor, 0.90);
             }
 
             if (overrideFloor > 0.0) {
