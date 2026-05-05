@@ -4,7 +4,6 @@ import '../../styles/FileUploadZone.css';
 const fileTypeConfig = {
   image: { icon: '🖼️', accept: '.png,.jpg,.jpeg,.gif,.webp', label: 'Image' },
   audio: { icon: '🎵', accept: '.wav,.mp3,.m4a,.aac,.ogg', label: 'Audio' },
-  video: { icon: '🎬', accept: '.mp4,.avi,.mov,.mkv,.webm', label: 'Video' },
   document: { icon: '📄', accept: '.txt,.pdf,.doc,.docx', label: 'Document' },
 };
 
@@ -68,7 +67,6 @@ const FileUploadZone = ({ file, setFile, fileType, setFileType }) => {
     const ext = f.name.split('.').pop().toLowerCase();
     if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) setFileType('image');
     else if (['wav', 'mp3', 'm4a', 'aac', 'ogg'].includes(ext)) setFileType('audio');
-    else if (['mp4', 'avi', 'mov', 'mkv', 'webm'].includes(ext)) setFileType('video');
     else if (['txt', 'pdf', 'doc', 'docx'].includes(ext)) setFileType('document');
   };
 
@@ -96,7 +94,7 @@ const FileUploadZone = ({ file, setFile, fileType, setFileType }) => {
           </svg>
         </div>
         <h4>Drop your file here, or <span className="browse-link">browse</span></h4>
-        <p>Supports images, audio, video, and documents</p>
+        <p>Supports images, audio, and documents</p>
       </div>
 
       {file && (

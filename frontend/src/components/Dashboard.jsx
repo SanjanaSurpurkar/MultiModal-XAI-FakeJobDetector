@@ -157,7 +157,6 @@ const Dashboard = () => {
                   <th>Result</th>
                   <th>Confidence</th>
                   <th>Red Flags</th>
-                  <th>ML Score</th>
                 </tr>
               </thead>
               <tbody>
@@ -188,11 +187,6 @@ const Dashboard = () => {
                       ) : (
                         <span style={{ color: 'var(--text-muted)' }}>No flags</span>
                       )}
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: 600 }}>
-                        {(item.baseModelScore * 100).toFixed(1)}%
-                      </span>
                     </td>
                   </tr>
                 ))}

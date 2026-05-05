@@ -92,7 +92,7 @@ const SignUp = () => {
               </div>
               <div className="auth-panel-feature">
                 <span>🔔</span>
-                <span>Real-time fraud alerts</span>
+                <span>Real-time detection</span>
               </div>
             </div>
           </div>

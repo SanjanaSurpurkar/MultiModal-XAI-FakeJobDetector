@@ -35,8 +35,8 @@ const LandingPage = () => {
   const stats = [
     { number: '97.84%', label: 'Detection Accuracy' },
     { number: '50+', label: 'Jobs Analyzed' },
-    { number: '< 8s', label: 'Average Response' },
-    { number: '12+', label: 'Fake Jobs Caught' },
+    { number: '< 20s', label: 'Average Response' },
+    { number: '10+', label: 'Fake Jobs Caught' },
   ];
 
 
@@ -53,7 +53,7 @@ const LandingPage = () => {
             Before You Apply
           </h1>
           <p>
-            Shield yourself from fraudulent job postings using advanced multi-modal AI that analyzes text, audio, video, and documents in seconds.
+            Shield yourself from fraudulent job postings using advanced multi-modal AI that analyzes text, audio, image, and documents in seconds.
           </p>
           <div className="landing-hero-actions">
             <button className="btn btn-primary btn-lg" onClick={() => navigate('/analyze')}>

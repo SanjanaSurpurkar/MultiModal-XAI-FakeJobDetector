@@ -6,7 +6,7 @@ import '../styles/ResultPage.css';
 import LimeChart from './LimeChart';
 import { getExplanation, saveEnhancedJobResult } from '../services/api';
 
-const DEPTH_OPTIONS = [5, 10, 15, 20];
+const DEPTH_OPTIONS = [5, 10];
 
 const ResultPage = () => {
   const { state } = useLocation();
