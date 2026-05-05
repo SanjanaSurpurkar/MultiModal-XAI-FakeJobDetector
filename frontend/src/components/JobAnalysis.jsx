@@ -349,7 +349,7 @@ const JobAnalysis = () => {
               />
               <div className="analysis-submit" style={{ marginTop: 'var(--space-6)' }}>
                 <span className="analysis-submit-hint">
-                  Supported: Images, Audio, Video, Documents
+                  Supported: Images, Audio, Documents
                 </span>
                 <button
                   type="submit"
