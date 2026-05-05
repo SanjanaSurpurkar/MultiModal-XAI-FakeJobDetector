@@ -601,17 +601,31 @@ public class JobAnalysisService {
                     && !domainValidation.getExtractedDomain().isEmpty();
 
             StringBuilder overrideNotes = new StringBuilder();
+            double overrideFloor = 0.0;
+            int strongSignalCount = 0;
+
             if (hasDomainMismatchKnownCompany) {
-                finalScore = Math.max(finalScore, 0.95);
+                strongSignalCount++;
+                overrideFloor = Math.max(overrideFloor, 0.90);
                 overrideNotes.append("Domain mismatch for known company detected. ");
             }
             if (hasNonCorporateChannel) {
-                finalScore = Math.max(finalScore, 0.95);
+                strongSignalCount++;
+                overrideFloor = Math.max(overrideFloor, 0.85);
                 overrideNotes.append("Non-corporate channel mention detected (Telegram/WhatsApp). ");
             }
             if (hasEquipmentCheckScam) {
-                finalScore = Math.max(finalScore, 0.95);
+                strongSignalCount++;
+                overrideFloor = Math.max(overrideFloor, 0.90);
                 overrideNotes.append("Equipment check scam red flag detected. ");
+            }
+
+            if (strongSignalCount >= 2) {
+                overrideFloor = Math.max(overrideFloor, 0.95);
+            }
+
+            if (overrideFloor > 0.0) {
+                finalScore = Math.max(finalScore, overrideFloor);
             }
 
             String externalValidationInfluence = "Hybrid and validation score combined. ";
