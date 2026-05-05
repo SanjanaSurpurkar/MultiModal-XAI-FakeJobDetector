@@ -591,6 +591,8 @@ public class JobAnalysisService {
             boolean hasNonCorporateChannel = containsNonCorporateChannel(text);
             boolean hasEquipmentCheckScam = redFlags.stream()
                     .anyMatch(flag -> "EQUIPMENT_CHECK_SCAM".equalsIgnoreCase(flag.getType()));
+            boolean hasUpfrontPayment = redFlags.stream()
+                    .anyMatch(flag -> "UPFRONT_PAYMENT".equalsIgnoreCase(flag.getType()));
             
             // 🔧 FIX: Only trigger domain mismatch override if we actually extracted a domain from the job posting
             // If extractedDomain is null, it means no URL was found in the posting, so we can't judge as suspicious
@@ -605,8 +607,13 @@ public class JobAnalysisService {
             int strongSignalCount = 0;
 
             if (hasDomainMismatchKnownCompany) {
-                strongSignalCount++;
-                overrideFloor = Math.max(overrideFloor, 0.60);
+                if (hasNonCorporateChannel) {
+                    overrideFloor = Math.max(overrideFloor, 0.80);
+                } else if (hasEquipmentCheckScam || hasUpfrontPayment) {
+                    overrideFloor = Math.max(overrideFloor, 0.90);
+                } else {
+                    finalScore = Math.min(1.0, finalScore + 0.2 * (1.0 - finalScore));
+                }
                 overrideNotes.append("Domain mismatch for known company detected. ");
             }
             if (hasNonCorporateChannel) {
