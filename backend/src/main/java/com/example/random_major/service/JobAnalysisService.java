@@ -591,9 +591,14 @@ public class JobAnalysisService {
             boolean hasNonCorporateChannel = containsNonCorporateChannel(text);
             boolean hasEquipmentCheckScam = redFlags.stream()
                     .anyMatch(flag -> "EQUIPMENT_CHECK_SCAM".equalsIgnoreCase(flag.getType()));
+            
+            // 🔧 FIX: Only trigger domain mismatch override if we actually extracted a domain from the job posting
+            // If extractedDomain is null, it means no URL was found in the posting, so we can't judge as suspicious
             boolean hasDomainMismatchKnownCompany = companyVerification.isExists()
                     && domainValidation != null
-                    && !domainValidation.isMatch();
+                    && !domainValidation.isMatch()
+                    && domainValidation.getExtractedDomain() != null  // ← Only if domain was actually extracted
+                    && !domainValidation.getExtractedDomain().isEmpty();
 
             StringBuilder overrideNotes = new StringBuilder();
             if (hasDomainMismatchKnownCompany) {
